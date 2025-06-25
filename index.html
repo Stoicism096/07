@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识点消消乐</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #FFF8F0; /* 奶白色背景 */
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            user-select: none;
+        }
+        
+        h1 {
+            color: #FF6B6B;
+            font-size: 3em;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .game-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            gap: 15px;
+        }
+        
+        .bubble {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 20px;
+            color: #FFF8F0; /* 奶白色字体 */
+            text-align: center;
+            padding: 10px;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2), 
+                        inset 0 -5px 15px rgba(0, 0, 0, 0.1),
+                        inset 0 5px 15px rgba(255, 255, 255, 0.3);
+            transform-style: preserve-3d;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 100%);
+        }
+        
+        .bubble::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            border-radius: 50%;
+            background: inherit;
+            filter: brightness(1.1);
+            z-index: -1;
+        }
+        
+        .bubble:hover {
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 15px 25px rgba(0, 0, 0, 0.3), 
+                        inset 0 -5px 15px rgba(0, 0, 0, 0.1),
+                        inset 0 5px 15px rgba(255, 255, 255, 0.4);
+        }
+        
+        .bubble.selected {
+            transform: scale(1.1) translateY(-10px);
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.4), 
+                        inset 0 -5px 15px rgba(0, 0, 0, 0.1),
+                        inset 0 5px 15px rgba(255, 255, 255, 0.5);
+            z-index: 10;
+        }
+        
+        .bubble.matched {
+            visibility: hidden;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.5s ease;
+        }
+        
+        .bubble img {
+            max-width: 60%;
+            max-height: 60%;
+            position: absolute;
+            bottom: 10px;
+            filter: drop-shadow(0 0 5px rgba(0,0,0,0.3));
+        }
+        
+        .timer {
+            font-size: 24px;
+            margin: 20px 0;
+            color: #FF6B6B;
+            font-weight: bold;
+        }
+        
+        .flowers {
+            margin-top: 20px;
+        }
+        
+        .flower {
+            color: #FF6B6B;
+            font-size: 24px;
+            margin: 0 5px;
+        }
+        
+        .game-over {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2em;
+            z-index: 100;
+            display: none;
+        }
+        
+        .restart-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            background-color: #FF6B6B;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>知识点消消乐</h1>
+    <div class="timer">时间: 30秒</div>
+    <div class="game-container" id="gameContainer"></div>
+    <div class="flowers" id="flowers"></div>
+    
+    <div class="game-over" id="gameOver">
+        <div id="resultMessage"></div>
+        <button class="restart-btn" onclick="restartGame()">再玩一次</button>
+    </div>
+
+    <script>
+        // 知识点数据 - 可以扩展更多
+        const knowledgeData = [
+            { word: "苹果", image: "🍎" },
+            { word: "香蕉", image: "🍌" },
+            { word: "橙子", image: "🍊" },
+            { word: "葡萄", image: "🍇" },
+            { word: "西瓜", image: "🍉" },
+            { word: "草莓", image: "🍓" },
+            { word: "菠萝", image: "🍍" },
+            { word: "柠檬", image: "🍋" },
+            { word: "桃子", image: "🍑" },
+            { word: "樱桃", image: "🍒" },
+            { word: "梨", image: "🍐" },
+            { word: "芒果", image: "🥭" },
+            { word: "猕猴桃", image: "🥝" },
+            { word: "椰子", image: "🥥" },
+            { word: "牛油果", image: "🥑" },
+            { word: "茄子", image: "🍆" }
+        ];
+        
+        // 游戏变量
+        let selectedBubbles = [];
+        let matchedPairs = 0;
+        let totalPairs = 0;
+        let timeLeft = 30;
+        let timer;
+        let flowersEarned = 0;
+        let gameActive = true;
+        
+        // 初始化游戏
+        function initGame() {
+            const gameContainer = document.getElementById('gameContainer');
+            gameContainer.innerHTML = '';
+            selectedBubbles = [];
+            matchedPairs = 0;
+            timeLeft = 30;
+            gameActive = true;
+            document.getElementById('gameOver').style.display = 'none';
+            
+            // 随机选择8对知识点
+            const shuffledData = [...knowledgeData].sort(() => 0.5 - Math.random());
+            const selectedData = shuffledData.slice(0, 8);
+            totalPairs = selectedData.length;
+            
+            // 创建泡泡
+            const bubbles = [];
+            
+            // 创建带文字的泡泡
+            selectedData.forEach(item => {
+                bubbles.push({
+                    content: item.word,
+                    match: item.word,
+                    hasImage: false
+                });
+            });
+            
+            // 创建带图片的泡泡
+            selectedData.forEach(item => {
+                bubbles.push({
+                    content: item.image,
+                    match: item.word,
+                    hasImage: true
+                });
+            });
+            
+            // 打乱泡泡顺序
+            const shuffledBubbles = bubbles.sort(() => 0.5 - Math.random());
+            
+            // 渲染泡泡
+            shuffledBubbles.forEach((bubble, index) => {
+                const bubbleElement = document.createElement('div');
+                bubbleElement.className = 'bubble';
+                bubbleElement.dataset.match = bubble.match;
+                bubbleElement.dataset.index = index;
+                
+                // 随机颜色
+                const hue = Math.floor(Math.random() * 360);
+                const saturation = 70 + Math.floor(Math.random() * 30);
+                const lightness = 50 + Math.floor(Math.random() * 20);
+                bubbleElement.style.backgroundColor = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                
+                if (bubble.hasImage) {
+                    bubbleElement.innerHTML = `<span>${bubble.match}</span><div style="font-size: 40px;">${bubble.content}</div>`;
+                } else {
+                    bubbleElement.textContent = bubble.content;
+                }
+                
+                bubbleElement.addEventListener('click', () => handleBubbleClick(bubbleElement));
+                gameContainer.appendChild(bubbleElement);
+            });
+            
+            // 开始计时
+            updateTimerDisplay();
+            timer = setInterval(updateTimer, 1000);
+        }
+        
+        // 处理泡泡点击
+        function handleBubbleClick(bubble) {
+            if (!gameActive || bubble.classList.contains('matched') || selectedBubbles.length >= 2) {
+                return;
+            }
+            
+            // 播放文字声音
+            speakText(bubble.dataset.match);
+            
+            // 高亮选中的泡泡
+            bubble.classList.add('selected');
+            selectedBubbles.push(bubble);
+            
+            // 检查是否匹配
+            if (selectedBubbles.length === 2) {
+                const bubble1 = selectedBubbles[0];
+                const bubble2 = selectedBubbles[1];
+                
+                if (bubble1.dataset.match === bubble2.dataset.match) {
+                    // 匹配成功
+                    setTimeout(() => {
+                        bubble1.classList.add('matched');
+                        bubble2.classList.add('matched');
+                        selectedBubbles = [];
+                        matchedPairs++;
+                        
+                        // 检查是否全部匹配
+                        if (matchedPairs === totalPairs) {
+                            endGame(true);
+                        }
+                    }, 500);
+                } else {
+                    // 不匹配
+                    setTimeout(() => {
+                        bubble1.classList.remove('selected');
+                        bubble2.classList.remove('selected');
+                        selectedBubbles = [];
+                    }, 1000);
+                }
+            }
+        }
+        
+        // 更新计时器
+        function updateTimer() {
+            if (!gameActive) return;
+            
+            timeLeft--;
+            updateTimerDisplay();
+            
+            if (timeLeft <= 0) {
+                endGame(false);
+            }
+        }
+        
+        // 更新计时器显示
+        function updateTimerDisplay() {
+            document.querySelector('.timer').textContent = `时间: ${timeLeft}秒`;
+        }
+        
+        // 结束游戏
+        function endGame(isWin) {
+            gameActive = false;
+            clearInterval(timer);
+            
+            const gameOver = document.getElementById('gameOver');
+            const resultMessage = document.getElementById('resultMessage');
+            
+            if (isWin) {
+                resultMessage.textContent = `恭喜你完成了所有配对！用时 ${30 - timeLeft}秒`;
+                addFlower();
+            } else {
+                resultMessage.textContent = `时间到！你完成了 ${matchedPairs} 对配对，共 ${totalPairs} 对`;
+            }
+            
+            gameOver.style.display = 'flex';
+        }
+        
+        // 添加小红花
+        function addFlower() {
+            flowersEarned++;
+            const flowersContainer = document.getElementById('flowers');
+            const flower = document.createElement('span');
+            flower.className = 'flower';
+            flower.textContent = '🌸';
+            flowersContainer.appendChild(flower);
+        }
+        
+        // 重新开始游戏
+        function restartGame() {
+            initGame();
+        }
+        
+        // 文字转语音
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'zh-CN';
+                speechSynthesis.speak(utterance);
+            }
+        }
+        
+        // 初始化游戏
+        window.onload = initGame;
+    </script>
+</body>
+</html>
